@@ -1,15 +1,47 @@
 'use client'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function CreateAccount() {
     const [formData, setFormData] = useState({
         characterName: '',
         alliance: '',
-        friends: [''] // 初始化一個空的朋友陣列
+        friends: [''],
+        lineId: '',
+        lineName: ''
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        // 初始化 LIFF
+        const initializeLiff = async () => {
+            try {
+                const liff = (await import('@line/liff')).default;
+                await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
+                
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                } else {
+                    const profile = await liff.getProfile();
+                    setFormData(prev => ({
+                        ...prev,
+                        lineId: profile.userId,
+                        lineName: profile.displayName
+                    }));
+                }
+            } catch (error) {
+                console.error('LIFF 初始化失敗:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        initializeLiff();
+    }, []);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsSubmitting(true);
         try {
             const response = await fetch('/api/submit-account', {
                 method: 'POST',
@@ -18,19 +50,26 @@ export default function CreateAccount() {
                 },
                 body: JSON.stringify({
                     ...formData,
-                    friends: formData.friends.filter(friend => friend !== '') // 過濾掉空值
+                    friends: formData.friends.filter(friend => friend !== '')
                 })
             });
 
             if (response.ok) {
                 alert('帳號新增成功！');
-                setFormData({ characterName: '', alliance: '', friends: [''] });
+                setFormData(prev => ({ 
+                    ...prev,
+                    characterName: '',
+                    alliance: '',
+                    friends: ['']
+                }));
             } else {
                 alert('發生錯誤，請稍後再試。');
             }
         } catch (error) {
             console.error('Error:', error);
             alert('發生錯誤，請稍後再試。');
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -49,6 +88,10 @@ export default function CreateAccount() {
             friends: newFriends
         });
     };
+
+    if (isLoading) {
+        return <div className="container mx-auto p-4">載入中...</div>;
+    }
 
     return (
         <div className="container mx-auto p-4">
@@ -112,9 +155,14 @@ export default function CreateAccount() {
 
                 <button
                     type="submit"
-                    className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600"
+                    disabled={isSubmitting}
+                    className={`w-full py-2 px-4 rounded-md text-white
+                        ${isSubmitting 
+                            ? 'bg-gray-400 cursor-not-allowed' 
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        }`}
                 >
-                    確定新增
+                    {isSubmitting ? '處理中...' : '確定新增'}
                 </button>
             </form>
         </div>
