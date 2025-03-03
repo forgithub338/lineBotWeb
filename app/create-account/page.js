@@ -14,27 +14,26 @@ export default function CreateAccount() {
     const [liff, setLiff] = useState(null);
     const [error, setError] = useState('');
 
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    // 更新 `useEffect` 內的邏輯
     useEffect(() => {
-        // 初始化 LIFF
         const initializeLiff = async () => {
             try {
                 console.log('開始初始化 LIFF');
                 const liffModule = await import('@line/liff');
                 const liffObject = liffModule.default;
                 
-                // 先進行初始化
+                // 進行初始化
                 await liffObject.init({
                     liffId: process.env.NEXT_PUBLIC_LIFF_ID,
                     withLoginOnExternalBrowser: true
                 });
                 console.log('LIFF 初始化成功');
                 
-                // 初始化後再檢查登入狀態
-                console.log('登入狀態:', liffObject.isLoggedIn());
-                console.log('是否在 LINE 應用程式內:', liffObject.isInClient());
-
+                // 設置 liff 物件
                 setLiff(liffObject);
-
+    
                 if (!liffObject.isLoggedIn()) {
                     console.log('使用者未登入，準備導向登入頁面');
                     liffObject.login({
@@ -42,7 +41,7 @@ export default function CreateAccount() {
                     });
                     return;
                 }
-
+    
                 console.log('使用者已登入，準備獲取資料');
                 const profile = await liffObject.getProfile();
                 console.log('成功獲取用戶資料');
@@ -52,20 +51,36 @@ export default function CreateAccount() {
                     lineId: profile.userId,
                     lineName: profile.displayName
                 }));
-                
             } catch (error) {
                 console.error('LIFF 初始化失敗:', error);
                 setError(`初始化失敗: ${error.message}`);
             } finally {
                 setIsLoading(false);
+                setIsInitialized(true);  // 初始化完成
             }
         };
-
-        // 確保在瀏覽器環境中執行
+    
         if (typeof window !== 'undefined') {
             initializeLiff();
         }
     }, []);
+    
+    if (!isInitialized) {
+        return (
+            <div className="container mx-auto p-4 flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="mb-4">載入中...</div>
+                    <div className="text-sm text-gray-500">請稍候，正在確認 LINE 登入狀態</div>
+                    {error && (
+                        <div className="text-red-500 mt-2">
+                            {error}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+    
 
     const handleSubmit = async (e) => {
         e.preventDefault();
