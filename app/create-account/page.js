@@ -11,18 +11,25 @@ export default function CreateAccount() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [liff, setLiff] = useState(null);
 
     useEffect(() => {
         // 初始化 LIFF
         const initializeLiff = async () => {
             try {
-                const liff = (await import('@line/liff')).default;
-                await liff.init({ liffId: process.env.NEXT_PUBLIC_LIFF_ID });
-                
-                if (!liff.isLoggedIn()) {
-                    liff.login();
+                const liffModule = await import('@line/liff');
+                const liffObject = liffModule.default;
+                await liffObject.init({
+                    liffId: process.env.NEXT_PUBLIC_LIFF_ID,
+                    withLoginOnExternalBrowser: true  // 添加這個選項
+                });
+                setLiff(liffObject);
+
+                // 檢查登入狀態
+                if (!liffObject.isLoggedIn()) {
+                    liffObject.login();
                 } else {
-                    const profile = await liff.getProfile();
+                    const profile = await liffObject.getProfile();
                     setFormData(prev => ({
                         ...prev,
                         lineId: profile.userId,
@@ -31,6 +38,7 @@ export default function CreateAccount() {
                 }
             } catch (error) {
                 console.error('LIFF 初始化失敗:', error);
+                alert('LINE 登入發生問題，請重新整理頁面');
             } finally {
                 setIsLoading(false);
             }
@@ -90,7 +98,14 @@ export default function CreateAccount() {
     };
 
     if (isLoading) {
-        return <div className="container mx-auto p-4">載入中...</div>;
+        return (
+            <div className="container mx-auto p-4 flex items-center justify-center min-h-screen">
+                <div className="text-center">
+                    <div className="mb-4">載入中...</div>
+                    <div className="text-sm text-gray-500">請稍候，正在確認 LINE 登入狀態</div>
+                </div>
+            </div>
+        );
     }
 
     return (
